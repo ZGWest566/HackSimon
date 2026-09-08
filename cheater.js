@@ -67,6 +67,99 @@ async function getData(id) {
     });
 }
 
+// ── 豆包嵌入式弹窗 ────────────────────────────────────────
+let _doubaoPanel = null;
+
+function toggleDoubao() {
+    // 已存在 → 关闭
+    if (_doubaoPanel) {
+        _doubaoPanel.remove();
+        _doubaoPanel = null;
+        return;
+    }
+    // 创建容器
+    _doubaoPanel = document.createElement('div');
+    _doubaoPanel.id = 'doubao-panel';
+    Object.assign(_doubaoPanel.style, {
+        position: 'fixed',
+        top: '10%',
+        right: '20px',
+        width: '420px',
+        height: '75%',
+        zIndex: '99999',
+        background: '#fff',
+        borderRadius: '12px',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.35)',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        resize: 'both',
+        minWidth: '300px',
+        minHeight: '300px'
+    });
+
+    // 标题栏（可拖拽）
+    const bar = document.createElement('div');
+    bar.textContent = '🤖 豆包助手';
+    Object.assign(bar.style, {
+        padding: '10px 14px',
+        background: '#1a1a2e',
+        color: '#fff',
+        fontSize: '14px',
+        fontWeight: '600',
+        cursor: 'move',
+        flexShrink: '0',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        userSelect: 'none'
+    });
+    const closeBtn = document.createElement('span');
+    closeBtn.textContent = '✕';
+    Object.assign(closeBtn.style, {
+        cursor: 'pointer',
+        fontSize: '18px',
+        padding: '0 4px',
+        opacity: '0.7'
+    });
+    closeBtn.onclick = (e) => { e.stopPropagation(); toggleDoubao(); };
+    bar.appendChild(closeBtn);
+
+    // 拖拽
+    let dragging = false, ox, oy;
+    bar.onmousedown = (e) => {
+        dragging = true;
+        ox = e.clientX - _doubaoPanel.offsetLeft;
+        oy = e.clientY - _doubaoPanel.offsetTop;
+        document.body.style.userSelect = 'none';
+    };
+    document.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        _doubaoPanel.style.left = (e.clientX - ox) + 'px';
+        _doubaoPanel.style.top = (e.clientY - oy) + 'px';
+        _doubaoPanel.style.right = 'auto';
+    });
+    document.addEventListener('mouseup', () => {
+        dragging = false;
+        document.body.style.userSelect = '';
+    });
+
+    // iframe
+    const iframe = document.createElement('iframe');
+    iframe.src = 'https://www.doubao.com/chat/';
+    Object.assign(iframe.style, {
+        flex: '1',
+        border: 'none',
+        width: '100%',
+        height: '100%'
+    });
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups');
+
+    _doubaoPanel.appendChild(bar);
+    _doubaoPanel.appendChild(iframe);
+    document.body.appendChild(_doubaoPanel);
+}
+
 (function() {
     'use strict';
     // 禁用反作弊，覆写函数
@@ -123,6 +216,10 @@ async function getData(id) {
         if (event.key === 'w') {
             getData(S.activeExam.id);
             showToast("获取答案数据成功");
+        }
+        // E: 打开/关闭豆包弹窗
+        if (event.key === 'e') {
+            toggleDoubao();
         }
         // Q: 查看当前题目答案
         if (event.key === 'q') {
