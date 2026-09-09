@@ -96,7 +96,30 @@ async function getData(id) {
     });
 }
 
-// ── 豆包嵌入式弹窗 ────────────────────────────────────────
+// ── 随机抽卡 ──────────────────────────────────────────────
+async function randomDraw() {
+    const R = (typeof NEBSReward !== 'undefined') ? NEBSReward : (unsafeWindow && unsafeWindow.NEBSReward);
+    if (!R) {
+        showToast('NEBSReward 未加载，请先进入考试或图鉴页面');
+        return;
+    }
+    try {
+        const d = await api('GET', '/api/collection/cards', {});
+        const cards = d.cards || [];
+        if (!cards.length) {
+            showToast('卡池为空');
+            return;
+        }
+        const card = cards[Math.floor(Math.random() * cards.length)];
+        showToast('抽卡: ' + (card.cn || card.en || '???'));
+        R.play({ card: card });
+    } catch (e) {
+        showToast('抽卡失败: ' + e.message);
+        console.error('randomDraw error:', e);
+    }
+}
+
+    // ── 豆包嵌入式弹窗 ────────────────────────────────────────
 let _doubaoPanel = null;
 
 function toggleDoubao() {
@@ -292,13 +315,51 @@ function toggleGui() {
     const examIdLabel = document.createElement('span');
     examIdLabel.textContent = '考试 ID:';
     examIdLabel.style.color = '#888';
+    const examIdRight = document.createElement('div');
+    examIdRight.style.display = 'flex';
+    examIdRight.style.alignItems = 'center';
+    examIdRight.style.gap = '8px';
     const examIdValue = document.createElement('span');
     examIdValue.id = 'gui-exam-id';
     examIdValue.textContent = S.activeExam?.id || '（未开始考试）';
     examIdValue.style.fontWeight = '600';
     examIdValue.style.color = '#1a1a2e';
+    const copyBtn = document.createElement('button');
+    copyBtn.textContent = '📋';
+    copyBtn.title = '复制考试 ID';
+    Object.assign(copyBtn.style, {
+        border: 'none',
+        background: 'none',
+        cursor: 'pointer',
+        fontSize: '14px',
+        padding: '2px 4px',
+        borderRadius: '4px',
+        opacity: '0.6',
+        transition: 'opacity 0.15s'
+    });
+    copyBtn.onmouseenter = () => { copyBtn.style.opacity = '1'; };
+    copyBtn.onmouseleave = () => { copyBtn.style.opacity = '0.6'; };
+    copyBtn.onclick = () => {
+        const id = examIdValue.textContent;
+        if (!id || id === '（未开始考试）') return;
+        const ta = document.createElement('textarea');
+        ta.value = id;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+            document.execCommand('copy');
+            showToast('考试 ID 已复制: ' + id);
+        } catch (e) {
+            showToast('复制失败');
+        }
+        document.body.removeChild(ta);
+    };
+    examIdRight.appendChild(examIdValue);
+    examIdRight.appendChild(copyBtn);
     examIdRow.appendChild(examIdLabel);
-    examIdRow.appendChild(examIdValue);
+    examIdRow.appendChild(examIdRight);
 
     // 低可见度模式开关
     const lowVisRow = document.createElement('div');
@@ -340,8 +401,38 @@ function toggleGui() {
     lowVisRow.appendChild(lowVisLabel);
     lowVisRow.appendChild(toggle);
 
+    // 随机抽卡按钮
+    const drawRow = document.createElement('div');
+    drawRow.style.display = 'flex';
+    drawRow.style.justifyContent = 'center';
+    const drawBtn = document.createElement('button');
+    drawBtn.textContent = '🃏 模拟随机抽卡';
+    Object.assign(drawBtn.style, {
+        padding: '10px 24px',
+        fontSize: '14px',
+        fontWeight: '600',
+        border: 'none',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        background: 'linear-gradient(135deg, #667eea, #764ba2)',
+        color: '#fff',
+        boxShadow: '0 2px 8px rgba(102,126,234,0.4)',
+        transition: 'transform 0.15s, box-shadow 0.15s'
+    });
+    drawBtn.onmouseenter = () => {
+        drawBtn.style.transform = 'scale(1.05)';
+        drawBtn.style.boxShadow = '0 4px 16px rgba(102,126,234,0.6)';
+    };
+    drawBtn.onmouseleave = () => {
+        drawBtn.style.transform = 'scale(1)';
+        drawBtn.style.boxShadow = '0 2px 8px rgba(102,126,234,0.4)';
+    };
+    drawBtn.onclick = () => randomDraw();
+    drawRow.appendChild(drawBtn);
+
     content.appendChild(examIdRow);
     content.appendChild(lowVisRow);
+    content.appendChild(drawRow);
 
     _guiPanel.appendChild(bar);
     _guiPanel.appendChild(content);
