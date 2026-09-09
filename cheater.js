@@ -10,6 +10,32 @@
 
 // ==/UserScript==
 
+// ── 低可见度模式 ───────────────────────────────────────────
+let _lowVisMode = false;
+let _doubaoBar = null;  // 豆包标题栏引用，用于低可见度切换
+
+function applyLowVis() {
+    // 豆包标题栏
+    if (_doubaoBar) {
+        _doubaoBar.style.background = _lowVisMode ? '#f5f5f5' : '#1a1a2e';
+        _doubaoBar.style.color = _lowVisMode ? '#aaa' : '#fff';
+    }
+    // 豆包面板阴影
+    if (_doubaoPanel) {
+        _doubaoPanel.style.boxShadow = _lowVisMode ? 'none' : '0 8px 40px rgba(0,0,0,0.35)';
+    }
+    // GUI 标题栏
+    const guiBar = document.getElementById('gui-panel-bar');
+    if (guiBar) {
+        guiBar.style.background = _lowVisMode ? '#f5f5f5' : '#1a1a2e';
+        guiBar.style.color = _lowVisMode ? '#aaa' : '#fff';
+    }
+    // GUI 面板阴影
+    if (_guiPanel) {
+        _guiPanel.style.boxShadow = _lowVisMode ? 'none' : '0 8px 40px rgba(0,0,0,0.35)';
+    }
+}
+
 function showToast(message, duration = 1000) {
     // 如果已存在消息框，先移除旧的（保证只有一个）
     const existing = document.getElementById('toast-message');
@@ -21,18 +47,21 @@ function showToast(message, duration = 1000) {
     toast.textContent = message;
 
     // 基础样式
+    const bg = _lowVisMode ? 'rgba(245,245,245,0.95)' : 'rgba(20,20,20,0.8)';
+    const fg = _lowVisMode ? '#aaa' : '#f0f0ff';
+    const shadow = _lowVisMode ? 'none' : '0 2px 10px rgba(255,255,255,0.3)';
     Object.assign(toast.style, {
         position: 'fixed',
         bottom: '20px',
         right: '20px',
-        backgroundColor: 'rgba(20,20,20,0.8)',
-        color: '#f0f0ff',
+        backgroundColor: bg,
+        color: fg,
         padding: '10px 20px',
         borderRadius: '6px',
         fontSize: '14px',
         fontFamily: 'sans-serif',
         zIndex: '9999',
-        boxShadow: '0 2px 10px rgba(255,255,255,0.3)',
+        boxShadow: shadow,
         opacity: '0',
         transition: 'opacity 0.2s ease'
     });
@@ -75,6 +104,7 @@ function toggleDoubao() {
     if (_doubaoPanel) {
         _doubaoPanel.remove();
         _doubaoPanel = null;
+        _doubaoBar = null;
         return;
     }
     // 创建容器
@@ -100,11 +130,14 @@ function toggleDoubao() {
 
     // 标题栏（可拖拽）
     const bar = document.createElement('div');
+    _doubaoBar = bar;  // 保存引用，供低可见度模式使用
     bar.textContent = '🤖 豆包助手';
+    const barBg = _lowVisMode ? '#f5f5f5' : '#1a1a2e';
+    const barFg = _lowVisMode ? '#333' : '#fff';
     Object.assign(bar.style, {
         padding: '10px 14px',
-        background: '#1a1a2e',
-        color: '#fff',
+        background: barBg,
+        color: barFg,
         fontSize: '14px',
         fontWeight: '600',
         cursor: 'move',
@@ -158,6 +191,161 @@ function toggleDoubao() {
     _doubaoPanel.appendChild(bar);
     _doubaoPanel.appendChild(iframe);
     document.body.appendChild(_doubaoPanel);
+}
+
+// ── GUI 控制面板 ───────────────────────────────────────────
+let _guiPanel = null;
+
+function toggleGui() {
+    if (_guiPanel) {
+        _guiPanel.remove();
+        _guiPanel = null;
+        return;
+    }
+
+    _guiPanel = document.createElement('div');
+    _guiPanel.id = 'gui-panel';
+    Object.assign(_guiPanel.style, {
+        position: 'fixed',
+        top: '10%',
+        right: '480px',
+        width: '300px',
+        height: 'auto',
+        zIndex: '99999',
+        background: '#fff',
+        borderRadius: '12px',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.35)',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        resize: 'both',
+        minWidth: '260px',
+        minHeight: '200px'
+    });
+
+    // 标题栏（可拖拽）
+    const bar = document.createElement('div');
+    bar.id = 'gui-panel-bar';
+    bar.textContent = '⚙ HackSimon';
+    const barBg = _lowVisMode ? '#f5f5f5' : '#1a1a2e';
+    const barFg = _lowVisMode ? '#333' : '#fff';
+    Object.assign(bar.style, {
+        padding: '10px 14px',
+        background: barBg,
+        color: barFg,
+        fontSize: '14px',
+        fontWeight: '600',
+        cursor: 'move',
+        flexShrink: '0',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        userSelect: 'none'
+    });
+    const closeBtn = document.createElement('span');
+    closeBtn.textContent = '✕';
+    Object.assign(closeBtn.style, {
+        cursor: 'pointer',
+        fontSize: '18px',
+        padding: '0 4px',
+        opacity: '0.7'
+    });
+    closeBtn.onclick = (e) => { e.stopPropagation(); toggleGui(); };
+    bar.appendChild(closeBtn);
+
+    // 拖拽
+    let dragging = false, ox, oy;
+    bar.onmousedown = (e) => {
+        dragging = true;
+        ox = e.clientX - _guiPanel.offsetLeft;
+        oy = e.clientY - _guiPanel.offsetTop;
+        document.body.style.userSelect = 'none';
+    };
+    document.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        _guiPanel.style.left = (e.clientX - ox) + 'px';
+        _guiPanel.style.top = (e.clientY - oy) + 'px';
+        _guiPanel.style.right = 'auto';
+    });
+    document.addEventListener('mouseup', () => {
+        dragging = false;
+        document.body.style.userSelect = '';
+    });
+
+    // 内容区
+    const content = document.createElement('div');
+    Object.assign(content.style, {
+        padding: '16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '14px',
+        fontSize: '13px',
+        fontFamily: 'sans-serif',
+        color: '#333'
+    });
+
+    // 考试 ID
+    const examIdRow = document.createElement('div');
+    examIdRow.style.display = 'flex';
+    examIdRow.style.justifyContent = 'space-between';
+    examIdRow.style.alignItems = 'center';
+    const examIdLabel = document.createElement('span');
+    examIdLabel.textContent = '考试 ID:';
+    examIdLabel.style.color = '#888';
+    const examIdValue = document.createElement('span');
+    examIdValue.id = 'gui-exam-id';
+    examIdValue.textContent = S.activeExam?.id || '（未开始考试）';
+    examIdValue.style.fontWeight = '600';
+    examIdValue.style.color = '#1a1a2e';
+    examIdRow.appendChild(examIdLabel);
+    examIdRow.appendChild(examIdValue);
+
+    // 低可见度模式开关
+    const lowVisRow = document.createElement('div');
+    lowVisRow.style.display = 'flex';
+    lowVisRow.style.justifyContent = 'space-between';
+    lowVisRow.style.alignItems = 'center';
+    const lowVisLabel = document.createElement('span');
+    lowVisLabel.textContent = '低可见度模式';
+    lowVisLabel.style.color = '#888';
+    const toggle = document.createElement('label');
+    toggle.style.cssText = 'position:relative;display:inline-block;width:44px;height:24px;cursor:pointer';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = _lowVisMode;
+    checkbox.style.opacity = '0';
+    checkbox.style.width = '0';
+    checkbox.style.height = '0';
+    const slider = document.createElement('span');
+    slider.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:24px;transition:0.3s';
+    const sliderDot = document.createElement('span');
+    sliderDot.style.cssText = 'position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:white;border-radius:50%;transition:0.3s';
+    slider.appendChild(sliderDot);
+    toggle.appendChild(checkbox);
+    toggle.appendChild(slider);
+
+    checkbox.addEventListener('change', () => {
+        _lowVisMode = checkbox.checked;
+        slider.style.background = _lowVisMode ? '#4caf50' : '#ccc';
+        sliderDot.style.transform = _lowVisMode ? 'translateX(20px)' : 'translateX(0)';
+        applyLowVis();
+    });
+
+    // 初始状态
+    if (_lowVisMode) {
+        slider.style.background = '#4caf50';
+        sliderDot.style.transform = 'translateX(20px)';
+    }
+
+    lowVisRow.appendChild(lowVisLabel);
+    lowVisRow.appendChild(toggle);
+
+    content.appendChild(examIdRow);
+    content.appendChild(lowVisRow);
+
+    _guiPanel.appendChild(bar);
+    _guiPanel.appendChild(content);
+    document.body.appendChild(_guiPanel);
 }
 
 (function() {
@@ -220,6 +408,10 @@ function toggleDoubao() {
         // E: 打开/关闭豆包弹窗
         if (event.key === 'e') {
             toggleDoubao();
+        }
+        // G: 打开/关闭 GUI 控制面板
+        if (event.key === 'g') {
+            toggleGui();
         }
         // Q: 查看当前题目答案
         if (event.key === 'q') {
